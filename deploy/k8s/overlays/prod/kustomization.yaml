@@ -7,4 +7,4 @@ resources:
   - ingress-preview.yaml
 images:
   - name: registry.144.91.77.245.sslip.io/elephantalpha
-    newTag: bootstrap
+    newTag: ce7c0db88d3744414b76ad713c4e62d88b622342
