@@ -3,16 +3,8 @@ kind: Ingress
 metadata:
   name: app-elephantalpha-live
   annotations:
-    acme.cert-manager.io/http01-edit-in-place: "true"
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    cert-manager.io/issue-temporary-certificate: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
-  tls:
-    - secretName: app-elephantalpha-live-tls
-      hosts:
-        - elephantalpha.lol
   rules:
     - host: elephantalpha.lol
       http:
