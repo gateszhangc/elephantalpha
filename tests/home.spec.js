@@ -1,36 +1,30 @@
 const { test, expect } = require("@playwright/test");
 
-test.describe("Artemis II wallpaper site", () => {
-  test("desktop homepage renders key content and filters wallpapers", async ({ page }) => {
+test.describe("Elephant Alpha landing page", () => {
+  test("desktop homepage renders critical SEO and hero content", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page).toHaveTitle(/Artemis II Wallpaper/i);
-    await expect(page.locator("h1")).toHaveText("Artemis II Wallpaper");
-    await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /publicly released NASA mission imagery/i);
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://artemis-2-wallpaper.lol/");
+    await expect(page).toHaveTitle(/Elephant Alpha/i);
+    await expect(page.locator("h1")).toHaveText("Elephant Alpha");
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /256K context/i);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://elephantalpha.lol/");
+    await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Elephant Alpha");
 
-    const wallpaperCards = page.locator(".wallpaper-card");
-    await expect(wallpaperCards).toHaveCount(10);
-    await expect(page.getByText("Not an official NASA website.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "View on OpenRouter" })).toBeVisible();
+    await expect(page.getByText("Independent editorial page.")).toBeVisible();
+    await expect(page.getByRole("img", { name: "Elephant Alpha wordmark" })).toBeVisible();
+    await expect(page.locator(".faq-list details")).toHaveCount(4);
+    await expect(page.locator('script[src*="googletagmanager.com/gtag/js?id=G-Q6H3NZC8BE"]')).toHaveCount(1);
+    await expect(page.locator('script[src*="clarity.ms/tag/"]')).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Posters" }).click();
-    await expect(page.locator(".wallpaper-card:not([hidden])")).toHaveCount(2);
-    await expect(page.locator("[data-results-count]")).toHaveText("Showing 2 wallpapers");
-
-    await page.getByRole("button", { name: "All" }).click();
-    await expect(page.locator(".wallpaper-card:not([hidden])")).toHaveCount(10);
-
-    for (const image of await page.locator("img").all()) {
-      await image.scrollIntoViewIfNeeded();
+    const imageUrls = await page.locator("img").evaluateAll((images) => images.map((image) => image.getAttribute("src")));
+    for (const src of imageUrls) {
+      const response = await page.request.get(src);
+      expect(response.ok()).toBe(true);
     }
-
-    const imagesLoaded = await page.evaluate(() =>
-      Array.from(document.images).every((image) => image.complete && image.naturalWidth > 0)
-    );
-    expect(imagesLoaded).toBe(true);
   });
 
-  test("mobile layout stays within viewport and keeps gallery accessible", async ({ browser }) => {
+  test("mobile layout stays inside the viewport and FAQ remains usable", async ({ browser }) => {
     const context = await browser.newContext({
       viewport: { width: 390, height: 844 },
       isMobile: true
@@ -40,16 +34,55 @@ test.describe("Artemis II wallpaper site", () => {
     await page.goto("/");
 
     await expect(page.locator("h1")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Explore the Collection" })).toBeVisible();
-    await page.getByRole("link", { name: "Explore the Collection" }).click();
-    await expect(page.locator("#gallery")).toBeInViewport();
+    await page.getByRole("link", { name: "Use Cases" }).click();
+    await expect(page.locator("#use-cases")).toBeInViewport();
 
-    const overflow = await page.evaluate(() => {
-      return document.documentElement.scrollWidth - window.innerWidth;
-    });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
 
-    await expect(page.locator(".wallpaper-card")).toHaveCount(10);
+    const faq = page.locator(".faq-list details").nth(1).locator("summary");
+    await faq.click();
+    await expect(page.getByText("256K context window and support for up to 32K output tokens.")).toBeVisible();
+
+    await context.close();
+  });
+
+  test("supporting SEO files point at elephantalpha.lol", async ({ page }) => {
+    const robots = await page.request.get("/robots.txt");
+    expect(await robots.text()).toContain("https://elephantalpha.lol/sitemap.xml");
+
+    const sitemap = await page.request.get("/sitemap.xml");
+    expect(await sitemap.text()).toContain("<loc>https://elephantalpha.lol/</loc>");
+    expect(await sitemap.text()).toContain("<lastmod>2026-04-19</lastmod>");
+
+    const manifest = await page.request.get("/site.webmanifest");
+    const manifestJson = await manifest.json();
+    expect(manifestJson.name).toBe("Elephant Alpha");
+    expect(manifestJson.icons[0].src).toBe("/assets/brand/favicon.png");
+  });
+
+  test("analytics scripts are injected when env ids are present", async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    await page.route("https://www.googletagmanager.com/**", async (route) => {
+      await route.fulfill({ status: 200, body: "" });
+    });
+    await page.route("https://www.clarity.ms/**", async (route) => {
+      await route.fulfill({ status: 200, body: "" });
+    });
+
+    await page.goto("/");
+    await page.evaluate(() => {
+      window.__ELEPHANT_ALPHA_CONFIG__.ga4MeasurementId = "G-TEST123456";
+      window.__ELEPHANT_ALPHA_CONFIG__.clarityProjectId = "clarity123";
+      window.__ELEPHANT_ALPHA_BOOT__.bootGa4();
+      window.__ELEPHANT_ALPHA_BOOT__.bootClarity();
+    });
+
+    await expect(page.locator('script[src*="googletagmanager.com/gtag/js?id=G-TEST123456"]')).toHaveCount(1);
+    await expect(page.locator('script[src="https://www.clarity.ms/tag/clarity123"]')).toHaveCount(1);
+
     await context.close();
   });
 });

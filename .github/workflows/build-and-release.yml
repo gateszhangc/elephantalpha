@@ -7,19 +7,20 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: artemis-2-wallpaper-release
+  group: elephantalpha-release
   cancel-in-progress: true
 
 env:
-  IMAGE_NAME: registry.144.91.77.245.sslip.io/dokploy-fleet-artemis-2-wallpaper-artemis-2-wallpaper
-  FLEET_REPO: gateszhangc/k8s-fleet
-  FLEET_TENANT_PATH: tenants/artemis-2-wallpaper/20-artemis-2-wallpaper-deployment.yaml
+  IMAGE_NAME: registry.144.91.77.245.sslip.io/elephantalpha
+  K8S_NAMESPACE: elephantalpha
+  BUILD_JOB_PREFIX: build-elephantalpha
 
 jobs:
   build-and-push:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
@@ -31,36 +32,130 @@ jobs:
         id: meta
         run: echo "image_tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
 
-      - name: Log in to registry
-        uses: docker/login-action@v3
-        with:
-          registry: registry.144.91.77.245.sslip.io
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          printf '%s' "${{ secrets.KUBECONFIG_B64 }}" | base64 --decode > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
 
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.image_tag }}
+      - name: Ensure build namespace exists
+        run: |
+          kubectl create namespace "$K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
-  update-fleet:
+      - name: Create temporary registry auth secret
+        run: |
+          printf '%s' "${{ secrets.REGISTRY_DOCKERCONFIGJSON_B64 }}" | base64 --decode > /tmp/.dockerconfigjson
+          kubectl -n "$K8S_NAMESPACE" create secret generic build-registry-auth \
+            --from-file=.dockerconfigjson=/tmp/.dockerconfigjson \
+            --type=kubernetes.io/dockerconfigjson \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create temporary git auth secret
+        run: |
+          kubectl -n "$K8S_NAMESPACE" create secret generic build-git-auth \
+            --from-literal=token='${{ github.token }}' \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Start K8s build job
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+        run: |
+          BUILD_JOB_NAME="${BUILD_JOB_PREFIX}-${GITHUB_RUN_ID}"
+          cat <<EOF >/tmp/build-job.yaml
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: ${BUILD_JOB_NAME}
+            namespace: ${K8S_NAMESPACE}
+          spec:
+            ttlSecondsAfterFinished: 600
+            backoffLimit: 0
+            template:
+              spec:
+                restartPolicy: Never
+                volumes:
+                  - name: workspace
+                    emptyDir: {}
+                  - name: docker-config
+                    secret:
+                      secretName: build-registry-auth
+                      items:
+                        - key: .dockerconfigjson
+                          path: config.json
+                initContainers:
+                  - name: checkout
+                    image: alpine/git:2.45.2
+                    env:
+                      - name: GITHUB_TOKEN
+                        valueFrom:
+                          secretKeyRef:
+                            name: build-git-auth
+                            key: token
+                    command: ["/bin/sh", "-lc"]
+                    args:
+                      - |
+                        set -eu
+                        git clone "https://x-access-token:\${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /workspace
+                        cd /workspace
+                        git fetch --depth=1 origin "${GITHUB_SHA}"
+                        git checkout --detach "${GITHUB_SHA}"
+                    volumeMounts:
+                      - name: workspace
+                        mountPath: /workspace
+                containers:
+                  - name: kaniko
+                    image: gcr.io/kaniko-project/executor:v1.23.2-debug
+                    args:
+                      - --context=dir:///workspace
+                      - --dockerfile=/workspace/Dockerfile
+                      - --destination=${IMAGE_NAME}:${IMAGE_TAG}
+                      - --snapshot-mode=redo
+                      - --use-new-run
+                    volumeMounts:
+                      - name: workspace
+                        mountPath: /workspace
+                      - name: docker-config
+                        mountPath: /kaniko/.docker
+          EOF
+          kubectl apply -f /tmp/build-job.yaml
+          echo "BUILD_JOB_NAME=${BUILD_JOB_NAME}" >> "$GITHUB_ENV"
+
+      - name: Wait for build job
+        run: |
+          kubectl -n "$K8S_NAMESPACE" wait --for=condition=complete --timeout=30m "job/${BUILD_JOB_NAME}"
+
+      - name: Print build logs
+        if: always()
+        run: |
+          if [[ -n "${BUILD_JOB_NAME:-}" ]]; then
+            kubectl -n "$K8S_NAMESPACE" logs "job/${BUILD_JOB_NAME}" -c checkout --tail=-1 || true
+            kubectl -n "$K8S_NAMESPACE" logs "job/${BUILD_JOB_NAME}" -c kaniko --tail=-1 || true
+          fi
+
+      - name: Cleanup build resources
+        if: always()
+        run: |
+          rm -f /tmp/.dockerconfigjson /tmp/build-job.yaml
+          if [[ -n "${BUILD_JOB_NAME:-}" ]]; then
+            kubectl -n "$K8S_NAMESPACE" delete job "${BUILD_JOB_NAME}" --ignore-not-found=true
+          fi
+          kubectl -n "$K8S_NAMESPACE" delete secret build-git-auth --ignore-not-found=true
+          kubectl -n "$K8S_NAMESPACE" delete secret build-registry-auth --ignore-not-found=true
+
+  update-gitops-tag:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Check out fleet repo
+      - name: Check out code
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.FLEET_REPO }}
-          token: ${{ secrets.FLEET_REPO_PAT }}
-          path: k8s-fleet
+          fetch-depth: 0
 
-      - name: Update deployment image tag
+      - name: Update image tag
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
@@ -69,30 +164,29 @@ jobs:
           import re
           from pathlib import Path
 
-          path = Path("k8s-fleet") / os.environ["FLEET_TENANT_PATH"]
+          path = Path("deploy/k8s/overlays/prod/kustomization.yaml")
           content = path.read_text()
           updated, count = re.subn(
-              r"(^\s*image:\s*registry\.144\.91\.77\.245\.sslip\.io/dokploy-fleet-artemis-2-wallpaper-artemis-2-wallpaper:).*$",
-              rf"\1{os.environ['IMAGE_TAG']}",
+              r"(^\s*newTag:\s*).*$",
+              lambda match: f"{match.group(1)}{os.environ['IMAGE_TAG']}",
               content,
               count=1,
               flags=re.MULTILINE,
           )
           if count != 1:
-              raise SystemExit("Expected exactly one image line to update in the fleet deployment manifest.")
+              raise SystemExit("expected a single newTag entry in kustomization.yaml")
           path.write_text(updated)
           PY
 
-      - name: Commit fleet update
+      - name: Commit manifest update
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
-          cd k8s-fleet
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$FLEET_TENANT_PATH"
-          if git diff --cached --quiet; then
+          if git diff --quiet -- deploy/k8s/overlays/prod/kustomization.yaml; then
             exit 0
           fi
-          git commit -m "chore: release artemis-2-wallpaper ${IMAGE_TAG}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/k8s/overlays/prod/kustomization.yaml
+          git commit -m "chore: release ${IMAGE_TAG} [skip ci]"
           git push origin HEAD:main

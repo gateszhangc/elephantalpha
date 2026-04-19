@@ -1,11 +1,11 @@
 {
-  "name": "Artemis II Wallpaper",
-  "short_name": "Artemis II",
-  "description": "Independent editorial collection of Artemis II wallpapers using publicly released NASA imagery with source credit.",
+  "name": "Elephant Alpha",
+  "short_name": "Elephant Alpha",
+  "description": "Independent Elephant Alpha model guide covering context length, output limits, and workflow fit.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#050912",
-  "theme_color": "#050912",
+  "background_color": "#0a0f14",
+  "theme_color": "#0a0f14",
   "icons": [
     {
       "src": "/assets/brand/favicon.png",

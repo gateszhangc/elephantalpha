@@ -1,31 +1,55 @@
 const topbar = document.querySelector("[data-topbar]");
-const filterButtons = Array.from(document.querySelectorAll(".filter-button"));
-const wallpaperCards = Array.from(document.querySelectorAll(".wallpaper-card"));
-const resultsCount = document.querySelector("[data-results-count]");
-const yearNode = document.querySelector("#current-year");
+const yearNode = document.querySelector("[data-current-year]");
+const siteConfig = window.__ELEPHANT_ALPHA_CONFIG__ || {};
 
-const updateResults = (filter) => {
-  let visible = 0;
+const isConfiguredValue = (value) => typeof value === "string" && value.length > 0 && !value.includes("__");
 
-  wallpaperCards.forEach((card) => {
-    const tags = (card.dataset.tags || "").split(" ");
-    const matches = filter === "all" || tags.includes(filter);
-    card.hidden = !matches;
-    if (matches) visible += 1;
-  });
-
-  if (resultsCount) {
-    resultsCount.textContent = `Showing ${visible} wallpaper${visible === 1 ? "" : "s"}`;
-  }
+const injectScript = (src) => {
+  const script = document.createElement("script");
+  script.async = true;
+  script.src = src;
+  document.head.appendChild(script);
+  return script;
 };
 
-filterButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    filterButtons.forEach((entry) => entry.classList.remove("is-active"));
-    button.classList.add("is-active");
-    updateResults(button.dataset.filter || "all");
-  });
-});
+const bootGa4 = () => {
+  const measurementId = siteConfig.ga4MeasurementId;
+
+  if (!isConfiguredValue(measurementId)) return;
+
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function gtag() {
+    window.dataLayer.push(arguments);
+  };
+
+  injectScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`);
+  window.gtag("js", new Date());
+  window.gtag("config", measurementId, { anonymize_ip: true });
+};
+
+const bootClarity = () => {
+  const projectId = siteConfig.clarityProjectId;
+
+  if (!isConfiguredValue(projectId)) return;
+
+  ((c, l, a, r, i, t, y) => {
+    c[a] =
+      c[a] ||
+      function clarity() {
+        (c[a].q = c[a].q || []).push(arguments);
+      };
+    t = l.createElement(r);
+    t.async = 1;
+    t.src = `https://www.clarity.ms/tag/${i}`;
+    y = l.getElementsByTagName(r)[0];
+    y.parentNode.insertBefore(t, y);
+  })(window, document, "clarity", "script", projectId);
+};
+
+window.__ELEPHANT_ALPHA_BOOT__ = {
+  bootClarity,
+  bootGa4
+};
 
 if (yearNode) {
   yearNode.textContent = new Date().getFullYear();
@@ -38,4 +62,5 @@ const handleScroll = () => {
 
 window.addEventListener("scroll", handleScroll, { passive: true });
 handleScroll();
-updateResults("all");
+bootGa4();
+bootClarity();

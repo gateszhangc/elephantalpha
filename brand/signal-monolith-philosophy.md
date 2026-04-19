@@ -1,0 +1,11 @@
+# Signal Monolith
+
+Signal Monolith treats intelligence as something quarried rather than sprayed across a screen. Space is carved with the patience of architecture: heavy slabs, deliberate voids, and curves that feel machined rather than sketched. The work should read as meticulously crafted from dark mineral surfaces, with each interruption in the field serving as proof of deep expertise instead of decoration. It must feel like the result of long hours of reduction, where every surviving form earned its place.
+
+Color is restrained to a small register of graphite, oxidized bronze, pale limestone, and cold metallic light. These tones should never feel trendy or synthetic. They should appear calibrated with painstaking attention, as if tested repeatedly under different lighting until the balance became exact. Contrast is the mechanism of hierarchy: pale detail sits against dense mass, while the warm accent is reserved for the rare moment where signal breaks through material.
+
+Scale and rhythm rely on monumental compression. Large forms dominate first contact, then reveal smaller bands, ticks, and indexing marks that reward sustained viewing. This is not clutter; it is master-level execution through controlled accumulation. Repetition should suggest measurement, memory, and quiet power without slipping into literal diagrams. The piece must look labored over by someone at the top of their field, not quickly assembled.
+
+Typography appears as an engineered companion to form. It is sparse, aligned, and used with the same severity as the geometry around it. Words are not explanatory paragraphs; they are identification plates, etched labels, and signal coordinates. Letterforms should appear integrated into the object itself, with spacing adjusted so precisely that the whole composition feels the product of deep expertise and repeated refinement.
+
+The subtle conceptual thread is the elephant as disciplined memory and the alpha as first signal. Neither should be illustrated directly. Instead, the work should imply mass, retention, forward motion, and a single decisive trajectory cutting through stone. The final result must look pristine, museum-ready, and painstakingly resolved, with craftsmanship visible in every interval, edge, and proportion.

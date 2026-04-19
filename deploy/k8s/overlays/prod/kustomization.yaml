@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - ingress-live.yaml
+  - ingress-www-redirect.yaml
+  - ingress-preview.yaml
+images:
+  - name: registry.144.91.77.245.sslip.io/elephantalpha
+    newTag: bootstrap

@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: elephantalpha
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: elephantalpha
+  source:
+    repoURL: https://github.com/gateszhangc/elephantalpha.git
+    targetRevision: main
+    path: deploy/k8s/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: elephantalpha
+  ignoreDifferences:
+    - group: networking.k8s.io
+      kind: Ingress
+      name: app-elephantalpha-live
+      namespace: elephantalpha
+      jqPathExpressions:
+        - .spec.rules[].http.paths[] | select(.path | startswith("/.well-known/acme-challenge/"))
+    - group: networking.k8s.io
+      kind: Ingress
+      name: app-elephantalpha-www-redirect
+      namespace: elephantalpha
+      jqPathExpressions:
+        - .spec.rules[].http.paths[] | select(.path | startswith("/.well-known/acme-challenge/"))
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

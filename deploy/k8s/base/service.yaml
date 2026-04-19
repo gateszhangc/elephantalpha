@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-elephantalpha
+  labels:
+    app.kubernetes.io/name: elephantalpha
+    app.kubernetes.io/part-of: elephantalpha
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: elephantalpha
+    app.kubernetes.io/part-of: elephantalpha
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000

@@ -1,12 +1,13 @@
 {
-  "name": "artemis-2-wallpaper",
+  "name": "elephantalpha",
   "version": "1.0.0",
   "private": true,
-  "description": "Static Artemis II wallpaper site built from publicly released NASA imagery.",
+  "description": "Static Elephant Alpha keyword landing page.",
   "scripts": {
     "start": "node server.js",
     "test": "playwright test",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "brand": "python3 scripts/generate_brand_assets.py"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2"

@@ -1,10 +1,8 @@
-.git
-.github
 node_modules
+npm-debug.log
 playwright-report
 test-results
+.git
+.gitignore
+.DS_Store
 tasks
-brand
-scripts
-tests
-npm-debug.log*
