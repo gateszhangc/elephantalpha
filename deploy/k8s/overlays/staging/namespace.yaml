@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: elephantalpha-staging
+  labels:
+    app.kubernetes.io/name: elephantalpha
+    app.kubernetes.io/part-of: elephantalpha
+    app.kubernetes.io/environment: staging

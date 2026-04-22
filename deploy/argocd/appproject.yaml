@@ -10,6 +10,8 @@ spec:
   destinations:
     - namespace: elephantalpha
       server: https://kubernetes.default.svc
+    - namespace: elephantalpha-staging
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: "*"
       kind: "*"

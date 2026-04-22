@@ -10,12 +10,25 @@ test.describe("Elephant Alpha landing page", () => {
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://elephantalpha.lol/");
     await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Elephant Alpha");
 
-    await expect(page.getByRole("link", { name: "View on OpenRouter" })).toBeVisible();
-    await expect(page.getByText("Independent editorial page.")).toBeVisible();
+    const primaryCta = page.getByRole("link", { name: "View on OpenRouter" });
+    await expect(primaryCta).toBeVisible();
+    await expect(primaryCta).toHaveAttribute("href", "https://mirofish.my");
+    await expect(page.getByText("Independent editorial brief")).toBeVisible();
     await expect(page.getByRole("img", { name: "Elephant Alpha wordmark" })).toBeVisible();
     await expect(page.locator(".faq-list details")).toHaveCount(4);
     await expect(page.locator('script[src*="googletagmanager.com/gtag/js?id=G-Q6H3NZC8BE"]')).toHaveCount(1);
     await expect(page.locator('script[src*="clarity.ms/tag/"]')).toHaveCount(0);
+
+    const headerMetrics = await page.evaluate(() => {
+      const topbar = document.querySelector(".topbar");
+      const brandImg = document.querySelector(".brand img");
+      return {
+        topbarHeight: topbar?.getBoundingClientRect().height ?? 0,
+        brandHeight: brandImg?.getBoundingClientRect().height ?? 0
+      };
+    });
+    expect(headerMetrics.topbarHeight).toBeLessThan(96);
+    expect(headerMetrics.brandHeight).toBeLessThan(56);
 
     const imageUrls = await page.locator("img").evaluateAll((images) => images.map((image) => image.getAttribute("src")));
     for (const src of imageUrls) {
@@ -37,7 +50,20 @@ test.describe("Elephant Alpha landing page", () => {
     await page.getByRole("link", { name: "Use Cases" }).click();
     await expect(page.locator("#use-cases")).toBeInViewport();
 
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    const mobileLayout = await page.evaluate(() => {
+      const topbar = document.querySelector(".topbar");
+      const brandImg = document.querySelector(".brand img");
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        topbarHeight: topbar?.getBoundingClientRect().height ?? 0,
+        brandHeight: brandImg?.getBoundingClientRect().height ?? 0
+      };
+    });
+    expect(mobileLayout.topbarHeight).toBeLessThan(170);
+    expect(mobileLayout.brandHeight).toBeLessThan(44);
+    await expect(page.getByRole("link", { name: "API" })).toBeVisible();
+
+    const overflow = mobileLayout.overflow;
     expect(overflow).toBeLessThanOrEqual(1);
 
     const faq = page.locator(".faq-list details").nth(1).locator("summary");

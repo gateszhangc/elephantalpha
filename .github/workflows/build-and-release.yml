@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - staging
   workflow_dispatch:
 
 permissions:
@@ -157,6 +158,7 @@ jobs:
 
       - name: Update image tag
         env:
+          RELEASE_BRANCH: ${{ github.ref_name }}
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
           python3 - <<'PY'
@@ -164,7 +166,16 @@ jobs:
           import re
           from pathlib import Path
 
-          path = Path("deploy/k8s/overlays/prod/kustomization.yaml")
+          branch = os.environ["RELEASE_BRANCH"]
+          overlays = {
+              "main": "prod",
+              "staging": "staging",
+          }
+          overlay = overlays.get(branch)
+          if overlay is None:
+              raise SystemExit(f"unsupported release branch: {branch}")
+
+          path = Path(f"deploy/k8s/overlays/{overlay}/kustomization.yaml")
           content = path.read_text()
           updated, count = re.subn(
               r"(^\s*newTag:\s*).*$",
@@ -180,13 +191,27 @@ jobs:
 
       - name: Commit manifest update
         env:
+          RELEASE_BRANCH: ${{ github.ref_name }}
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
-          if git diff --quiet -- deploy/k8s/overlays/prod/kustomization.yaml; then
+          case "$RELEASE_BRANCH" in
+            main)
+              MANIFEST_PATH="deploy/k8s/overlays/prod/kustomization.yaml"
+              ;;
+            staging)
+              MANIFEST_PATH="deploy/k8s/overlays/staging/kustomization.yaml"
+              ;;
+            *)
+              echo "unsupported release branch: $RELEASE_BRANCH"
+              exit 1
+              ;;
+          esac
+
+          if git diff --quiet -- "$MANIFEST_PATH"; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add deploy/k8s/overlays/prod/kustomization.yaml
+          git add "$MANIFEST_PATH"
           git commit -m "chore: release ${IMAGE_TAG} [skip ci]"
-          git push origin HEAD:main
+          git push origin "HEAD:${RELEASE_BRANCH}"

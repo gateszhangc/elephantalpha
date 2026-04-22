@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: elephantalpha-staging
+resources:
+  - namespace.yaml
+  - ../../base
+  - ingress-staging.yaml
+patches:
+  - target:
+      kind: Deployment
+      name: app-elephantalpha
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: app-elephantalpha
+      spec:
+        template:
+          spec:
+            containers:
+              - name: web
+                env:
+                  - name: PRIMARY_HOST
+                    value: staging.elephantalpha.lol
+images:
+  - name: registry.144.91.77.245.sslip.io/elephantalpha
+    newTag: e7160626332be88fb0559edb1cddf2cc32c67d5b
