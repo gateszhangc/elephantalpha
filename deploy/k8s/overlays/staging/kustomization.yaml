@@ -24,4 +24,4 @@ patches:
                     value: staging.elephantalpha.lol
 images:
   - name: registry.144.91.77.245.sslip.io/elephantalpha
-    newTag: e7160626332be88fb0559edb1cddf2cc32c67d5b
+    newTag: 169d378afec1b8c28fa318f71072d372e09f6742
