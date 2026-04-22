@@ -9,4 +9,4 @@ resources:
   - ingress-preview.yaml
 images:
   - name: registry.144.91.77.245.sslip.io/elephantalpha
-    newTag: 169d378afec1b8c28fa318f71072d372e09f6742
+    newTag: 53461144a6feb040cb7a4444bff00d148551a93d
